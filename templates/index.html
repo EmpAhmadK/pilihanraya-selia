@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Menu Utama{% endblock %}
+{% block content %}
+
+<h1>Pilih Pilihan Raya</h1>
+
+{% if not username %}
+  <p class="hint">Sila log masuk dengan akaun Wikimedia anda untuk mula menyunting.</p>
+{% elif not is_allowed %}
+  <p class="hint warn">Akaun anda belum disahkan untuk menggunakan alat ini. Sila hubungi pentadbir.</p>
+{% endif %}
+
+<div class="election-list">
+  {% for qid, e in elections.items() %}
+    <a class="election-card" href="{{ url_for('election_page', eqid=qid) }}">
+      <div class="election-name">{{ e.name }}</div>
+      <div class="election-meta">{{ qid }} &middot; {{ e.seats|length }} kerusi</div>
+    </a>
+  {% else %}
+    <p class="hint">Tiada pilihan raya lagi.</p>
+  {% endfor %}
+</div>
+
+{% if is_admin %}
+<hr>
+<h2>Tambah Pilihan Raya Baharu</h2>
+<form method="post" action="{{ url_for('new_election') }}" id="new-election-form">
+  <label>Nama pilihan raya
+    <input type="text" name="name" placeholder="cth. Pilihan Raya Negeri Sembilan 2026" required>
+  </label>
+  <label>Item Wikidata pilihan raya (QID)
+    <input type="text" name="qid" placeholder="cth. Q139747429" required>
+  </label>
+
+  <h3>Kerusi Dipertandingkan</h3>
+  <div id="seat-rows">
+    <div class="seat-row">
+      <input type="text" name="seat_kod" placeholder="Kod (cth. N01)" required>
+      <input type="text" name="seat_nama" placeholder="Nama kawasan" required>
+      <input type="text" name="seat_qid" placeholder="QID (cth. Q140546215)" required>
+    </div>
+  </div>
+  <button type="button" class="btn btn-ghost" id="add-seat-row">+ Tambah kerusi</button>
+  <br><br>
+  <button type="submit" class="btn btn-primary">Simpan Pilihan Raya</button>
+</form>
+
+<hr>
+<p><a class="btn btn-ghost" href="{{ url_for('admin_whitelist') }}">Urus senarai pengguna dibenarkan</a></p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('add-seat-row') && document.getElementById('add-seat-row').addEventListener('click', function () {
+  const container = document.getElementById('seat-rows');
+  const row = document.createElement('div');
+  row.className = 'seat-row';
+  row.innerHTML = `
+    <input type="text" name="seat_kod" placeholder="Kod (cth. N02)" required>
+    <input type="text" name="seat_nama" placeholder="Nama kawasan" required>
+    <input type="text" name="seat_qid" placeholder="QID" required>`;
+  container.appendChild(row);
+});
+</script>
+{% endblock %}

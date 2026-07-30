@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Urus Pengguna{% endblock %}
+{% block content %}
+
+<p><a class="btn btn-ghost" href="{{ url_for('index') }}">&larr; Kembali ke menu utama</a></p>
+<h1>Senarai Pengguna Dibenarkan</h1>
+
+<table class="user-table">
+  <thead><tr><th>Nama pengguna</th><th>Pentadbir?</th><th></th></tr></thead>
+  <tbody>
+  {% for uname, info in users.items() %}
+    <tr>
+      <td>{{ uname }}</td>
+      <td>{{ "Ya" if info.admin else "Tidak" }}</td>
+      <td>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="action" value="remove">
+          <input type="hidden" name="username" value="{{ uname }}">
+          <button type="submit" class="btn btn-ghost">Buang</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Tambah Pengguna</h2>
+<form method="post">
+  <input type="hidden" name="action" value="add">
+  <label>Nama pengguna Wikimedia
+    <input type="text" name="username" required>
+  </label>
+  <label class="checkbox-line">
+    <input type="checkbox" name="admin"> Jadikan pentadbir
+  </label>
+  <button type="submit" class="btn btn-primary">Tambah</button>
+</form>
+
+{% endblock %}

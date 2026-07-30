@@ -1,0 +1,5 @@
+data/*.json
+secrets.json
+__pycache__/
+*.pyc
+.venv/
