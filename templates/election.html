@@ -44,7 +44,9 @@
     <div class="seat-results">
       {% for c in seat.candidates %}
         <div class="candidate-row">
-          <span class="party-dot" style="background: {{ c.party_color or '#888' }};" title="{{ c.party_label or 'Tiada parti' }}"></span>
+          <span class="party-dot" style="background: {{ c.party_color or '#888' }};" title="{{ c.party_label or 'Tiada parti' }}">
+            {% if c.party_logo %}<img src="{{ url_for('aset_file', filename=c.party_logo) }}" alt="{{ c.party_label or '' }}">{% endif %}
+          </span>
           <span class="candidate-label">{{ c.label }}</span>
           <span class="candidate-votes" data-guid="{{ c.guid }}">{{ c.votes if c.votes is not none else '-' }}</span>
         </div>

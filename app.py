@@ -1,5 +1,7 @@
+import os
+
 import mwoauth
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 import auth
 import storage
@@ -8,6 +10,14 @@ from config import OAUTH_MWURI, SECRET_KEY
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
+
+ASET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aset")
+
+
+@app.route("/aset/<path:filename>")
+def aset_file(filename):
+    return send_from_directory(ASET_DIR, filename)
+
 
 # Wikidata QIDs used for the "postal" / "early voting" qualifier values.
 Q_POSTAL_VOTER = "Q15044040"
@@ -23,67 +33,32 @@ P_SPOILT = "P5044"
 P_VALID = "P1697"
 P_ELECTED = "P991"
 
-# Manual colour overrides for specific parties (used in preference to
-# whatever P465 says on Wikidata, e.g. while those statements are still
-# missing/being added).
-PARTY_COLOR_OVERRIDES = {
-    "Q140263455": "#ff7800",
-    "Q4925703": "#D446B7",
-    "Q86890510": "#1759a0",
-}
-
-# Used for a seat box when there's no single leading candidate (either no
-# votes recorded yet, or a tie for first place).
-DEFAULT_SEAT_COLOR = "#4C4C4C"
-
 # Manual colour overrides for parties that don't (yet) have a P465 (colour)
 # statement on Wikidata. These take precedence over P465 when present.
 PARTY_COLOR_OVERRIDES = {
     "Q140263455": "#ff7800",
     "Q4925703": "#D446B7",
+    "Q86890510": "#1759a0",
+    "Q26871088": "#B1494E",
+}
+
+# Party logo files, served from /aset/<filename> (see aset_file() above).
+# Filenames must match exactly, including case, since Toolforge's filesystem
+# is case-sensitive.
+PARTY_LOGOS = {
+    "Q808210": "l-bn.SVG",
+    "Q21004257": "l-ph.SVG",
+    "Q86890510": "l-pn.svg",
+    "Q26871088": "l-bers.svg",
+    "Q857555": "l-psm.svg",
+    "Q140263455": "l-asli.svg",
+    "Q4925703": "l-berj.svg",
+    "Q327591": "l-bebas.SVG",
 }
 
 # Colour used when there is no single leading candidate (no votes recorded
 # yet, or a tie for first place).
-NO_LEADER_COLOR = "#4C4C4C"
-
-_party_color_cache = {}
-
-
-def get_party_color(qid):
-    """Look up a party's box colour: manual override first, else P465, cached per-process."""
-    if not qid:
-        return None
-    if qid in PARTY_COLOR_OVERRIDES:
-        return PARTY_COLOR_OVERRIDES[qid]
-    if qid in _party_color_cache:
-        return _party_color_cache[qid]
-    entity = wd.get_entity(qid, props="claims")
-    color = _party_color(entity)
-    _party_color_cache[qid] = color
-    return color
-
-
-def _compute_leading_color(items):
-    """
-    items: iterable of dicts with 'votes' (int or None) and 'party_color'
-    (hex string or None). Returns the leading candidate's party colour, or
-    NO_LEADER_COLOR if there's no votes yet or a tie for first place.
-    """
-    max_votes = None
-    leaders = []
-    for it in items:
-        v = it.get("votes")
-        if v is None:
-            continue
-        if max_votes is None or v > max_votes:
-            max_votes = v
-            leaders = [it]
-        elif v == max_votes:
-            leaders.append(it)
-    if len(leaders) == 1:
-        return leaders[0].get("party_color") or NO_LEADER_COLOR
-    return NO_LEADER_COLOR
+DEFAULT_SEAT_COLOR = "#4C4C4C"
 
 
 # --------------------------------------------------------------------- auth
@@ -208,9 +183,11 @@ def _build_seat_view(seat, entity):
             pe = party_entities.get(c["party_qid"], {})
             c["party_label"] = wd.label_of(pe)
             c["party_color"] = PARTY_COLOR_OVERRIDES.get(c["party_qid"]) or _party_color(pe)
+            c["party_logo"] = PARTY_LOGOS.get(c["party_qid"])
         else:
             c["party_label"] = None
             c["party_color"] = None
+            c["party_logo"] = None
 
     leading = None
     tied = False
