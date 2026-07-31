@@ -23,6 +23,68 @@ P_SPOILT = "P5044"
 P_VALID = "P1697"
 P_ELECTED = "P991"
 
+# Manual colour overrides for specific parties (used in preference to
+# whatever P465 says on Wikidata, e.g. while those statements are still
+# missing/being added).
+PARTY_COLOR_OVERRIDES = {
+    "Q140263455": "#ff7800",
+    "Q4925703": "#D446B7",
+    "Q86890510": "#1759a0",
+}
+
+# Used for a seat box when there's no single leading candidate (either no
+# votes recorded yet, or a tie for first place).
+DEFAULT_SEAT_COLOR = "#4C4C4C"
+
+# Manual colour overrides for parties that don't (yet) have a P465 (colour)
+# statement on Wikidata. These take precedence over P465 when present.
+PARTY_COLOR_OVERRIDES = {
+    "Q140263455": "#ff7800",
+    "Q4925703": "#D446B7",
+}
+
+# Colour used when there is no single leading candidate (no votes recorded
+# yet, or a tie for first place).
+NO_LEADER_COLOR = "#4C4C4C"
+
+_party_color_cache = {}
+
+
+def get_party_color(qid):
+    """Look up a party's box colour: manual override first, else P465, cached per-process."""
+    if not qid:
+        return None
+    if qid in PARTY_COLOR_OVERRIDES:
+        return PARTY_COLOR_OVERRIDES[qid]
+    if qid in _party_color_cache:
+        return _party_color_cache[qid]
+    entity = wd.get_entity(qid, props="claims")
+    color = _party_color(entity)
+    _party_color_cache[qid] = color
+    return color
+
+
+def _compute_leading_color(items):
+    """
+    items: iterable of dicts with 'votes' (int or None) and 'party_color'
+    (hex string or None). Returns the leading candidate's party colour, or
+    NO_LEADER_COLOR if there's no votes yet or a tie for first place.
+    """
+    max_votes = None
+    leaders = []
+    for it in items:
+        v = it.get("votes")
+        if v is None:
+            continue
+        if max_votes is None or v > max_votes:
+            max_votes = v
+            leaders = [it]
+        elif v == max_votes:
+            leaders.append(it)
+    if len(leaders) == 1:
+        return leaders[0].get("party_color") or NO_LEADER_COLOR
+    return NO_LEADER_COLOR
+
 
 # --------------------------------------------------------------------- auth
 
@@ -145,15 +207,23 @@ def _build_seat_view(seat, entity):
         if c["party_qid"]:
             pe = party_entities.get(c["party_qid"], {})
             c["party_label"] = wd.label_of(pe)
-            c["party_color"] = _party_color(pe)
+            c["party_color"] = PARTY_COLOR_OVERRIDES.get(c["party_qid"]) or _party_color(pe)
         else:
             c["party_label"] = None
             c["party_color"] = None
 
     leading = None
+    tied = False
     for c in candidates:
-        if c["votes"] is not None and (leading is None or c["votes"] > leading["votes"]):
+        if c["votes"] is None:
+            continue
+        if leading is None or c["votes"] > leading["votes"]:
             leading = c
+            tied = False
+        elif c["votes"] == leading["votes"]:
+            tied = True
+
+    leading_color = leading["party_color"] if (leading and not tied) else None
 
     rasmi = wd.has_claim(entity, P_ELECTED)
 
@@ -162,7 +232,7 @@ def _build_seat_view(seat, entity):
         "nama": seat["nama"],
         "qid": seat["qid"],
         "candidates": candidates,
-        "leading_color": leading["party_color"] if leading else None,
+        "leading_color": leading_color or DEFAULT_SEAT_COLOR,
         "rasmi": rasmi,
     }
 
@@ -278,6 +348,12 @@ def save_constituency(eqid, cqid):
     if not election:
         return jsonify({"error": "Pilihan raya tidak dijumpai."}), 404
 
+    seat = next((s for s in election["seats"] if s["qid"] == cqid), None)
+    if not seat:
+        return jsonify({"error": "Kawasan tidak dijumpai."}), 404
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     token = auth.current_access_token()
     entity = wd.get_entity(cqid)
     claims = entity.get("claims", {}).get(P_CANDIDATE, [])
@@ -296,8 +372,12 @@ def save_constituency(eqid, cqid):
                 continue
             amount = int(raw)
             updated_votes[guid] = amount
-            if current != amount:
-                wd.set_qualifier_quantity(token, guid, P_VOTES, amount)
+            existing_hashes = [
+                q["hash"] for q in c.get("qualifiers", {}).get(P_VOTES, []) if "hash" in q
+            ]
+            needs_edit = current != amount or len(existing_hashes) > 1
+            if needs_edit:
+                wd.upsert_vote_qualifier(token, c, P_VOTES, amount)
 
         if rasmi and not wd.has_claim(entity, P_ELECTED):
             # Determine the leading candidate using the just-saved vote counts.
@@ -325,6 +405,11 @@ def save_constituency(eqid, cqid):
 
     except wd.WikidataApiError as e:
         return jsonify({"error": str(e)}), 400
+
+    if is_ajax:
+        fresh_entity = wd.get_entity(cqid)
+        seat_view = _build_seat_view(seat, fresh_entity)
+        return jsonify({"seat": seat_view})
 
     return redirect(url_for("election_page", eqid=eqid))
 

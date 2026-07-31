@@ -15,7 +15,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: Montserrat, Tajawal, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 a { color: var(--accent); }
@@ -107,7 +107,7 @@ input[type=text], input[type=number] {
 }
 
 .seat-box {
-  --seat-color: #555555;
+  --seat-color: #4C4C4C;
   border-radius: 10px;
   padding: 0.9rem;
   cursor: pointer;
@@ -157,6 +157,13 @@ input[type=text], input[type=number] {
   font-size: 0.85rem;
 }
 .edit-row input { width: 90px; margin-top: 0; }
+
+.save-status {
+  font-size: 0.8rem;
+  margin-bottom: 0.4rem;
+  min-height: 1em;
+}
+.save-status.error { color: var(--danger); }
 
 .switch-line {
   display: flex;

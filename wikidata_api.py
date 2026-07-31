@@ -126,17 +126,17 @@ def item_value_json(qid):
 
 # ------------------------------------------------------------------ actions
 
-def set_qualifier_quantity(access_token, statement_guid, prop, amount):
-    return _post(
-        access_token,
-        {
-            "action": "wbsetqualifier",
-            "claim": statement_guid,
-            "property": prop,
-            "snaktype": "value",
-            "value": quantity_value_json(amount),
-        },
-    )
+def set_qualifier_quantity(access_token, statement_guid, prop, amount, snakhash=None):
+    params = {
+        "action": "wbsetqualifier",
+        "claim": statement_guid,
+        "property": prop,
+        "snaktype": "value",
+        "value": quantity_value_json(amount),
+    }
+    if snakhash:
+        params["snakhash"] = snakhash
+    return _post(access_token, params)
 
 
 def set_qualifier_item(access_token, statement_guid, prop, qid):
@@ -178,6 +178,36 @@ def create_claim(access_token, entity_id, prop, value_json, snak_type="value"):
         },
     )
     return data["claim"]
+
+
+def remove_qualifiers(access_token, statement_guid, prop, snakhashes):
+    if not snakhashes:
+        return None
+    return _post(
+        access_token,
+        {
+            "action": "wbremovequalifiers",
+            "claim": statement_guid,
+            "property": prop,
+            "snakhash": "|".join(snakhashes),
+        },
+    )
+
+
+def upsert_vote_qualifier(access_token, claim, prop, amount):
+    """
+    Edit the P1111 (or similar) qualifier on `claim` in place rather than
+    adding a new one. If the qualifier already has more than one value
+    (a data-quality issue), keep/update only the first and remove the rest.
+    """
+    guid = claim["id"]
+    existing = claim.get("qualifiers", {}).get(prop, [])
+    hashes = [q["hash"] for q in existing if "hash" in q]
+    primary_hash = hashes[0] if hashes else None
+    set_qualifier_quantity(access_token, guid, prop, amount, snakhash=primary_hash)
+    if len(hashes) > 1:
+        remove_qualifiers(access_token, guid, prop, hashes[1:])
+
 
 
 def remove_claims(access_token, guids):

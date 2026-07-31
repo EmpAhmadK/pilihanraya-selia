@@ -34,7 +34,9 @@
 <div class="seat-grid">
   {% for seat in seats %}
   <div class="seat-box {{ 'seat-rasmi' if seat.rasmi else 'seat-belum-rasmi' }}"
-       style="--seat-color: {{ seat.leading_color or '#555555' }};"
+       id="seat-{{ seat.qid }}"
+       data-qid="{{ seat.qid }}"
+       style="--seat-color: {{ seat.leading_color }};"
        onclick="toggleSeatEdit('{{ seat.qid }}')">
 
     <div class="seat-header">{{ seat.kod }} {{ seat.nama|upper }}</div>
@@ -44,13 +46,14 @@
         <div class="candidate-row">
           <span class="party-dot" style="background: {{ c.party_color or '#888' }};" title="{{ c.party_label or 'Tiada parti' }}"></span>
           <span class="candidate-label">{{ c.label }}</span>
-          <span class="candidate-votes">{{ c.votes if c.votes is not none else '-' }}</span>
+          <span class="candidate-votes" data-guid="{{ c.guid }}">{{ c.votes if c.votes is not none else '-' }}</span>
         </div>
       {% endfor %}
     </div>
 
     <form method="post" action="{{ url_for('save_constituency', eqid=election.qid, cqid=seat.qid) }}"
           class="seat-edit-form" id="edit-{{ seat.qid }}" onclick="event.stopPropagation();">
+      <div class="save-status" id="status-{{ seat.qid }}"></div>
       {% for c in seat.candidates %}
         <label class="edit-row">
           <span>{{ c.number or '?' }}. {{ c.label }}</span>
@@ -80,5 +83,79 @@ function toggleSeatEdit(qid) {
   const form = document.getElementById('edit-' + qid);
   if (form) form.classList.toggle('open');
 }
+
+function updateSeatBox(seat) {
+  const box = document.getElementById('seat-' + seat.qid);
+  if (!box) return;
+  box.style.setProperty('--seat-color', seat.leading_color);
+  box.classList.toggle('seat-rasmi', seat.rasmi);
+  box.classList.toggle('seat-belum-rasmi', !seat.rasmi);
+  seat.candidates.forEach(function (c) {
+    const span = box.querySelector('.candidate-votes[data-guid="' + c.guid + '"]');
+    if (span) span.textContent = (c.votes !== null && c.votes !== undefined) ? c.votes : '-';
+  });
+  if (seat.rasmi) {
+    const rasmiInput = box.querySelector('input[name="rasmi"]');
+    if (rasmiInput) { rasmiInput.checked = true; rasmiInput.disabled = true; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.seat-edit-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const rasmiBox = form.querySelector('input[name="rasmi"]');
+      if (rasmiBox && rasmiBox.checked && !rasmiBox.disabled) {
+        const ok = confirm(
+          'Anda akan mengesahkan keputusan ini sebagai RASMI. ' +
+          'Ini akan menambah pemenang (P991) dan jumlah undi sah (P1697) ' +
+          'pada item Wikidata. Teruskan?'
+        );
+        if (!ok) return;
+      }
+
+      const qid = form.closest('.seat-box').dataset.qid;
+      const statusEl = document.getElementById('status-' + qid);
+      const btn = form.querySelector('button[type=submit]');
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+      if (statusEl) { statusEl.textContent = ''; statusEl.className = 'save-status'; }
+
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok || result.data.error) {
+            if (statusEl) {
+              statusEl.textContent = 'Ralat: ' + (result.data.error || 'gagal menyimpan.');
+              statusEl.className = 'save-status error';
+            } else {
+              alert('Ralat: ' + (result.data.error || 'gagal menyimpan.'));
+            }
+            return;
+          }
+          updateSeatBox(result.data.seat);
+          form.classList.remove('open');
+        })
+        .catch(function (err) {
+          if (statusEl) {
+            statusEl.textContent = 'Ralat rangkaian: ' + err;
+            statusEl.className = 'save-status error';
+          } else {
+            alert('Ralat rangkaian: ' + err);
+          }
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = originalLabel;
+        });
+    });
+  });
+});
 </script>
 {% endblock %}
