@@ -37,7 +37,7 @@ P_ELECTED = "P991"
 # statement on Wikidata. These take precedence over P465 when present.
 PARTY_COLOR_OVERRIDES = {
     "Q140263455": "#ff7800",
-    "Q4925703": "#D446B7",
+    "Q4925703": "#730947",
     "Q86890510": "#1759a0",
     "Q26871088": "#B1494E",
 }
