@@ -53,6 +53,8 @@ PARTY_LOGOS = {
     "Q857555": "l-psm.svg",
     "Q140263455": "l-asli.svg",
     "Q4925703": "l-berj.svg",
+    "Q55394519": "l-sama.svg"
+    "Q65068759": "l-putr.svg"
     "Q327591": "l-bebas.SVG",
 }
 
