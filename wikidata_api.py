@@ -287,3 +287,12 @@ def party_of(claim):
         if dv:
             return dv.get("id")
     return None
+
+
+def named_as_of(claim):
+    """String value of the P1810 ("subject named as") qualifier on a statement, or None."""
+    for q in claim.get("qualifiers", {}).get("P1810", []):
+        dv = q.get("datavalue", {}).get("value")
+        if isinstance(dv, str) and dv.strip():
+            return dv.strip()
+    return None

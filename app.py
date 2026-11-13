@@ -18,7 +18,6 @@ ASET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aset")
 def aset_file(filename):
     return send_from_directory(ASET_DIR, filename)
 
-
 # Wikidata QIDs used for the "postal" / "early voting" qualifier values.
 Q_POSTAL_VOTER = "Q15044040"
 Q_EARLY_VOTER = "Q708369"
@@ -37,14 +36,13 @@ P_ELECTED = "P991"
 # statement on Wikidata. These take precedence over P465 when present.
 PARTY_COLOR_OVERRIDES = {
     "Q140263455": "#ff7800",
-    "Q4925703": "#730947",
+    "Q4925703": "#D446B7",
     "Q86890510": "#1759a0",
     "Q26871088": "#B1494E",
 }
 
-# Party logo files, served from /aset/<filename> (see aset_file() above).
-# Filenames must match exactly, including case, since Toolforge's filesystem
-# is case-sensitive.
+# Party logo files, served from /aset/<filename>. Filenames must match
+# exactly, including case (Toolforge's filesystem is case-sensitive).
 PARTY_LOGOS = {
     "Q808210": "l-bn.SVG",
     "Q21004257": "l-ph.SVG",
@@ -164,6 +162,7 @@ def _build_seat_view(seat, entity):
                 "number": wd.candidate_number_of(c),
                 "votes": wd.votes_of(c),
                 "party_qid": party_qid,
+                "named_as": wd.named_as_of(c),
             }
         )
 
@@ -180,7 +179,11 @@ def _build_seat_view(seat, entity):
     party_entities = wd.get_entities(list(party_ids), props="labels|claims")
 
     for c in candidates:
-        c["label"] = wd.label_of(cand_entities.get(c["qid"], {})) if c["qid"] else "?"
+        # Prefer the P1810 ("subject named as") value on the candidate's
+        # statement; fall back to the candidate item's label if there is none.
+        c["label"] = c["named_as"] or (
+            wd.label_of(cand_entities.get(c["qid"], {})) if c["qid"] else "?"
+        )
         if c["party_qid"]:
             pe = party_entities.get(c["party_qid"], {})
             c["party_label"] = wd.label_of(pe)
