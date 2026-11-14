@@ -17,8 +17,8 @@
     <label>Pengundi awal
       <input type="number" name="early_voters" value="{{ main_info.early_voters if main_info.early_voters is not none else '' }}">
     </label>
-    <label>Peratus keluar mengundi (%)
-      <input type="number" step="0.01" name="turnout" value="{{ main_info.turnout if main_info.turnout is not none else '' }}">
+    <label>Keluar mengundi
+      <input type="number" name="turnout" value="{{ main_info.turnout if main_info.turnout is not none else '' }}">
     </label>
     <label>Undi rosak
       <input type="number" name="spoilt_votes" value="{{ main_info.spoilt_votes if main_info.spoilt_votes is not none else '' }}">
