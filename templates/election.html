@@ -63,6 +63,11 @@
         </label>
       {% endfor %}
 
+      <label class="edit-row">
+        <span>Mengundi</span>
+        <input type="number" name="turnout" value="{{ seat.turnout if seat.turnout is not none else '' }}">
+      </label>
+
       <label class="switch-line">
         <span>Rasmi</span>
         <label class="switch">

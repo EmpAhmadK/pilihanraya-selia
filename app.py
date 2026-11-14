@@ -210,6 +210,7 @@ def _build_seat_view(seat, entity):
     rasmi = wd.has_claim(entity, P_ELECTED)
 
     return {
+        "turnout": _first_quantity(entity, P_TURNOUT),
         "kod": seat["kod"],
         "nama": seat["nama"],
         "qid": seat["qid"],
@@ -217,6 +218,18 @@ def _build_seat_view(seat, entity):
         "leading_color": leading_color or DEFAULT_SEAT_COLOR,
         "rasmi": rasmi,
     }
+
+
+def _first_quantity(entity, prop):
+    """Integer value of the first statement of `prop` on an entity, or None."""
+    for c in entity.get("claims", {}).get(prop, []):
+        dv = c.get("mainsnak", {}).get("datavalue", {}).get("value")
+        if dv:
+            try:
+                return int(float(dv["amount"]))
+            except (KeyError, ValueError, TypeError):
+                return None
+    return None
 
 
 def _party_color(party_entity):
@@ -360,6 +373,14 @@ def save_constituency(eqid, cqid):
             needs_edit = current != amount or len(existing_hashes) > 1
             if needs_edit:
                 wd.upsert_vote_qualifier(token, c, P_VOTES, amount)
+
+        raw_turnout = request.form.get("turnout", "").strip()
+        if raw_turnout != "":
+            turnout_amount = int(raw_turnout)
+            if turnout_amount != _first_quantity(entity, P_TURNOUT):
+                wd.upsert_quantity_statement(
+                    token, cqid, entity, P_TURNOUT, turnout_amount
+                )
 
         if rasmi and not wd.has_claim(entity, P_ELECTED):
             # Determine the leading candidate using the just-saved vote counts.
